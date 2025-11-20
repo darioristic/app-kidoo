@@ -14,6 +14,7 @@ interface Props {
 
 export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
   const [step, setStep] = useState(1);
+  const [provisioning, setProvisioning] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -104,9 +105,14 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
 
   const handleWorkspaceCreate = async () => {
     if (!pendingFamily || !subdomainAvailable) return;
-    const ws = await createWorkspace(familyName.trim(), subdomain.trim().toLowerCase(), language, timezone, plan);
-    const bound = bindParentToWorkspace(pendingFamily, ws);
-    onComplete(bound);
+    try {
+      setProvisioning(true);
+      const ws = await createWorkspace(familyName.trim(), subdomain.trim().toLowerCase(), language, timezone, plan);
+      const bound = bindParentToWorkspace(pendingFamily, ws);
+      onComplete(bound);
+    } catch (e) {
+      setProvisioning(false);
+    }
   };
 
   const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
@@ -132,13 +138,18 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
         final = `${base}-${tries}`;
       }
       const famName = pendingFamily.parent.lastName || pendingFamily.parent.name || 'Family';
-      const ws = await createWorkspace(famName, final, language, tz, plan);
-      const bound = bindParentToWorkspace(pendingFamily, ws);
-      onComplete(bound);
+      try {
+        setProvisioning(true);
+        const ws = await createWorkspace(famName, final, language, tz, plan);
+        const bound = bindParentToWorkspace(pendingFamily, ws);
+        onComplete(bound);
+      } catch (e) {
+        setProvisioning(false);
+      }
     };
-    if (step === 3 && pendingFamily && !subdomain) autoProvision();
+    if (step === 3 && pendingFamily && !subdomain && !provisioning) autoProvision();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, pendingFamily]);
+  }, [step, pendingFamily, provisioning]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-blue to-brand-purple flex items-center justify-center p-4">
@@ -160,8 +171,15 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
 
         <div className="flex-1 p-8 md:p-12 flex flex-col">
             
-            {step === 1 && (
-                <div className="flex-1 flex flex-col justify-center animate-in slide-in-from-right duration-500 animate-floaty">
+            {provisioning && (
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
+                  <div className="w-14 h-14 rounded-full border-4 border-indigo-200 border-t-indigo-600 animate-spin mb-4"></div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">Setting up your workspace…</h3>
+                  <p className="text-gray-500">Please wait</p>
+                </div>
+            )}
+            {!provisioning && step === 1 && (
+                <div className="flex-1 flex flex-col justify-center">
                     <h3 className="text-2xl font-bold text-gray-800 mb-6">Create Your Family Account</h3>
                     <div className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -214,8 +232,8 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
                 </div>
             )}
 
-            {step === 2 && (
-                <div className="flex-1 flex flex-col items-center justify-center text-center animate-in slide-in-from-right duration-500 animate-floaty">
+            {!provisioning && step === 2 && (
+                <div className="flex-1 flex flex-col items-center justify-center text-center">
                     <div className="w-20 h-20 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mb-6">
                         <Lock className="w-10 h-10" />
                     </div>
@@ -227,8 +245,8 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
                 </div>
             )}
 
-            {step === 3 && (
-                <div className="flex-1 flex flex-col animate-in slide-in-from-right duration-500 animate-floaty">
+            {!provisioning && step === 3 && (
+                <div className="flex-1 flex flex-col">
                     <h3 className="text-2xl font-bold text-gray-800 mb-6">Family Workspace Setup</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                         <div>
@@ -288,34 +306,37 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
             )}
 
             <div className="flex justify-between items-center mt-8 border-t pt-6">
-                {step > 1 ? (
+                {!provisioning && step > 1 ? (
                     <button onClick={() => setStep(prev => prev - 1)} className="text-gray-400 hover:text-gray-600 font-bold flex items-center gap-2">
                         <ArrowLeft className="w-5 h-5" /> {t.back}
                     </button>
                 ) : <div></div>}
 
-                {step === 1 && (
+                {!provisioning && step === 1 && (
                   <button 
                     onClick={handleParentSubmit}
                     disabled={!canSubmitParent}
-                    className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all ${!canSubmitParent ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-blue-700 hover:scale-105'}`}
+                    className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg ${!canSubmitParent ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-blue-700'}`}
                   >
                     {t.next} <ArrowRight className="w-5 h-5" />
                   </button>
                 )}
 
-                {step === 2 && (
+                {!provisioning && step === 2 && (
                   <div className="text-gray-400 font-bold">Waiting for verification…</div>
                 )}
 
-                {step === 3 && (
+                {!provisioning && step === 3 && (
                   <button 
                     onClick={handleWorkspaceCreate}
                     disabled={!familyName || !subdomain || subdomainAvailable === false}
-                    className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-all ${(!familyName || !subdomain || subdomainAvailable === false) ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-blue-700 hover:scale-105'}`}
+                    className={`px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg ${(!familyName || !subdomain || subdomainAvailable === false) ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-brand-blue text-white hover:bg-blue-700'}`}
                   >
                     Finish <Check className="w-5 h-5" />
                   </button>
+                )}
+                {provisioning && (
+                  <div className="text-gray-400 font-bold">Provisioning…</div>
                 )}
             </div>
 

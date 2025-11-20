@@ -42,7 +42,7 @@ export const AddChildScreen: React.FC<AddChildScreenProps> = ({ onSave, onCancel
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-       <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in duration-300">
+      <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col">
           
           <div className="p-6 border-b bg-white sticky top-0 z-10 flex items-center gap-4">
              <button onClick={onCancel} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
@@ -51,10 +51,10 @@ export const AddChildScreen: React.FC<AddChildScreenProps> = ({ onSave, onCancel
              <h1 className="text-2xl font-display font-bold text-gray-800">{t.addChild}</h1>
           </div>
 
-          <div className="p-8 overflow-y-auto max-h-[80vh]">
-             <div className="space-y-6">
+          <div className="p-6">
+             <div className="space-y-4">
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-bold text-gray-500 mb-2">{t.childName}</label>
                         <div className="relative">
@@ -99,17 +99,17 @@ export const AddChildScreen: React.FC<AddChildScreenProps> = ({ onSave, onCancel
 
                 <div>
                     <label className="block text-sm font-bold text-gray-500 mb-3">{t.chooseBuddy}</label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-3 md:grid-cols-5 gap-2">
                         {AVATARS.map(av => (
                             <div 
                                 key={av.id}
                                 onClick={() => setSelectedAvatar(av.id)}
                                 className={`
-                                    cursor-pointer rounded-xl p-2 border-2 transition-all flex flex-col items-center gap-2
-                                    ${selectedAvatar === av.id ? 'border-brand-blue bg-blue-50 shadow-md' : 'border-transparent hover:bg-gray-100'}
+                                    cursor-pointer rounded-xl p-2 border-2 flex flex-col items-center gap-2
+                                    ${selectedAvatar === av.id ? 'border-brand-blue bg-blue-50 shadow-md' : 'border-transparent'}
                                 `}
                             >
-                                <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${av.bgGradient} shadow-sm`} />
+                                <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${av.bgGradient} shadow-sm`} />
                                 <span className={`text-xs font-bold ${selectedAvatar === av.id ? 'text-brand-blue' : 'text-gray-500'}`}>
                                     {av.name}
                                 </span>
@@ -118,10 +118,10 @@ export const AddChildScreen: React.FC<AddChildScreenProps> = ({ onSave, onCancel
                     </div>
                 </div>
 
-                <div className="pt-6">
+                <div className="pt-4">
                     <div className="mb-4">
                         <label className="block text-sm font-bold text-gray-500 mb-2">Preferred difficulty</label>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-3 gap-2">
                           <button onClick={() => setPrefDifficulty(Difficulty.EASY)} className={`py-2 rounded-xl font-bold ${prefDifficulty===Difficulty.EASY?'bg-green-100 text-green-700':'bg-gray-100 text-gray-600'}`}>Easy</button>
                           <button onClick={() => setPrefDifficulty(Difficulty.MEDIUM)} className={`py-2 rounded-xl font-bold ${prefDifficulty===Difficulty.MEDIUM?'bg-blue-100 text-blue-700':'bg-gray-100 text-gray-600'}`}>Standard</button>
                           <button onClick={() => setPrefDifficulty(Difficulty.ADAPTIVE)} className={`py-2 rounded-xl font-bold ${prefDifficulty===Difficulty.ADAPTIVE?'bg-purple-100 text-purple-700':'bg-gray-100 text-gray-600'}`}>Adaptive AI</button>
@@ -131,10 +131,10 @@ export const AddChildScreen: React.FC<AddChildScreenProps> = ({ onSave, onCancel
                         onClick={handleSave}
                         disabled={!name.trim()}
                         className={`
-                            w-full py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-2 transition-all
+                            w-full py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center gap-2
                             ${!name.trim() 
                                 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                                : 'bg-brand-blue text-white hover:bg-blue-700 hover:scale-[1.02]'}
+                                : 'bg-brand-blue text-white hover:bg-blue-700'}
                         `}
                     >
                         <Check className="w-6 h-6" />

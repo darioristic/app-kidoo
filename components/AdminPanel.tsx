@@ -19,6 +19,7 @@ export const AdminPanel: React.FC<Props> = ({ language, onBack }) => {
   const [notif, setNotif] = useState<string | null>(null);
   const [users, setUsers] = useState<Array<{id:string,email:string,role:string,status:string}>>([]);
   const [settings, setSettings] = useState<Record<string, any>>({});
+  const [logs, setLogs] = useState<Array<{time:string,actor:string,action:string,target:string}>>([]);
 
   useEffect(() => {
     setActiveUsers(32);
@@ -26,6 +27,11 @@ export const AdminPanel: React.FC<Props> = ({ language, onBack }) => {
     fetch('/api/admin/users/list').then(r=>r.json()).then(d=>{ setUsers(d.users||[]); });
     fetch('/api/admin/settings/get').then(r=>r.json()).then(d=>{ setSettings(d.settings||{}); });
   }, []);
+
+  useEffect(() => {
+    if (tab !== 'logs') return;
+    fetch('/api/admin/logs/list').then(r=>r.json()).then(d=>{ setLogs(d.logs||[]); });
+  }, [tab]);
 
   const chartData = useMemo(() => (
     ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((name, i) => ({ name, events: events[i] || 0 }))
@@ -161,15 +167,27 @@ export const AdminPanel: React.FC<Props> = ({ language, onBack }) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="border rounded-xl p-4">
                 <p className="font-bold">Smart Games</p>
-                <button className="mt-2 px-3 py-1 rounded-lg bg-green-100 text-green-700">Enabled</button>
+                <button onClick={async()=>{
+                  const next = !(settings.module_smart_games===true)
+                  setSettings({...settings,module_smart_games:next})
+                  await fetch('/api/admin/settings/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'module_smart_games',value:next})})
+                }} className={`mt-2 px-3 py-1 rounded-lg ${settings.module_smart_games? 'bg-green-100 text-green-700':'bg-gray-100 text-gray-600'}`}>{settings.module_smart_games?'Enabled':'Disabled'}</button>
               </div>
               <div className="border rounded-xl p-4">
                 <p className="font-bold">Fun Games</p>
-                <button className="mt-2 px-3 py-1 rounded-lg bg-green-100 text-green-700">Enabled</button>
+                <button onClick={async()=>{
+                  const next = !(settings.module_fun_games===true)
+                  setSettings({...settings,module_fun_games:next})
+                  await fetch('/api/admin/settings/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'module_fun_games',value:next})})
+                }} className={`mt-2 px-3 py-1 rounded-lg ${settings.module_fun_games? 'bg-green-100 text-green-700':'bg-gray-100 text-gray-600'}`}>{settings.module_fun_games?'Enabled':'Disabled'}</button>
               </div>
               <div className="border rounded-xl p-4">
                 <p className="font-bold">AI Insights</p>
-                <button className="mt-2 px-3 py-1 rounded-lg bg-yellow-100 text-yellow-700">Limited</button>
+                <button onClick={async()=>{
+                  const next = (settings.module_ai_insights||'limited')==='enabled'? 'limited':'enabled'
+                  setSettings({...settings,module_ai_insights:next})
+                  await fetch('/api/admin/settings/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'module_ai_insights',value:next})})
+                }} className={`mt-2 px-3 py-1 rounded-lg ${settings.module_ai_insights==='enabled'? 'bg-green-100 text-green-700':'bg-yellow-100 text-yellow-700'}`}>{settings.module_ai_insights==='enabled'?'Enabled':'Limited'}</button>
               </div>
             </div>
           </div>
@@ -180,11 +198,17 @@ export const AdminPanel: React.FC<Props> = ({ language, onBack }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="border rounded-xl p-4">
                 <div className="flex items-center gap-2"><Globe className="w-4 h-4"/> Supabase</div>
-                <button className="mt-2 px-3 py-1 rounded-lg bg-blue-100 text-blue-700">Configure</button>
+                <button onClick={async()=>{
+                  setSettings({...settings,integration_supabase:'configured'})
+                  await fetch('/api/admin/settings/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'integration_supabase',value:'configured'})})
+                }} className="mt-2 px-3 py-1 rounded-lg bg-blue-100 text-blue-700">{settings.integration_supabase==='configured'?'Configured':'Configure'}</button>
               </div>
               <div className="border rounded-xl p-4">
                 <div className="flex items-center gap-2"><KeyRound className="w-4 h-4"/> Stripe</div>
-                <button className="mt-2 px-3 py-1 rounded-lg bg-blue-100 text-blue-700">Configure</button>
+                <button onClick={async()=>{
+                  setSettings({...settings,integration_stripe:'configured'})
+                  await fetch('/api/admin/settings/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'integration_stripe',value:'configured'})})
+                }} className="mt-2 px-3 py-1 rounded-lg bg-blue-100 text-blue-700">{settings.integration_stripe==='configured'?'Configured':'Configure'}</button>
               </div>
             </div>
           </div>
@@ -195,11 +219,19 @@ export const AdminPanel: React.FC<Props> = ({ language, onBack }) => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-bold text-gray-500 mb-1">Two-factor auth</label>
-                <button className="px-3 py-1 rounded-lg bg-green-100 text-green-700">Enabled</button>
+                <button onClick={async()=>{
+                  const next = !(settings.security_2fa===true)
+                  setSettings({...settings,security_2fa:next})
+                  await fetch('/api/admin/settings/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'security_2fa',value:next})})
+                }} className={`px-3 py-1 rounded-lg ${settings.security_2fa? 'bg-green-100 text-green-700':'bg-gray-100 text-gray-600'}`}>{settings.security_2fa?'Enabled':'Disabled'}</button>
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-500 mb-1">Suspicious activity</label>
-                <button className="px-3 py-1 rounded-lg bg-gray-100">Monitor</button>
+                <button onClick={async()=>{
+                  const next = !(settings.security_monitor===true)
+                  setSettings({...settings,security_monitor:next})
+                  await fetch('/api/admin/settings/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'security_monitor',value:next})})
+                }} className={`px-3 py-1 rounded-lg ${settings.security_monitor? 'bg-blue-100 text-blue-700':'bg-gray-100 text-gray-600'}`}>{settings.security_monitor?'Monitoring':'Monitor'}</button>
               </div>
             </div>
           </div>
@@ -213,7 +245,9 @@ export const AdminPanel: React.FC<Props> = ({ language, onBack }) => {
                   <tr className="text-left"><th className="p-3">Time</th><th className="p-3">Actor</th><th className="p-3">Action</th><th className="p-3">Target</th></tr>
                 </thead>
                 <tbody>
-                  <tr className="border-t"><td className="p-3">Just now</td><td className="p-3">demo@brainplaykids.com</td><td className="p-3">Update role</td><td className="p-3">user:123</td></tr>
+                  {logs.map((l,i)=> (
+                    <tr key={i} className="border-t"><td className="p-3">{l.time}</td><td className="p-3">{l.actor}</td><td className="p-3">{l.action}</td><td className="p-3">{l.target}</td></tr>
+                  ))}
                 </tbody>
               </table>
             </div>
