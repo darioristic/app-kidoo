@@ -1,9 +1,9 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+// types removed to avoid @vercel/node dependency during build
 import { Resend } from 'resend';
 
 const resend = new Resend(process.env.RESEND_API_KEY as string);
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   try {
     const { to, token, firstName } = req.body || {};

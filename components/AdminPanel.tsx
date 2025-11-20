@@ -19,18 +19,26 @@ export const AdminPanel: React.FC<Props> = ({ language, onBack }) => {
   const [notif, setNotif] = useState<string | null>(null);
   const [users, setUsers] = useState<Array<{id:string,email:string,role:string,status:string}>>([]);
   const [settings, setSettings] = useState<Record<string, any>>({});
+  const [envForm, setEnvForm] = useState<Record<string, string>>({
+    SUPABASE_URL: '',
+    SUPABASE_SERVICE_ROLE_KEY: '',
+    VITE_SUPABASE_URL: '',
+    VITE_SUPABASE_ANON_KEY: '',
+    VITE_STRIPE_PUBLISHABLE_KEY: '',
+    STRIPE_SECRET_KEY: ''
+  });
   const [logs, setLogs] = useState<Array<{time:string,actor:string,action:string,target:string}>>([]);
 
   useEffect(() => {
     setActiveUsers(32);
     setNotif(null);
-    fetch('/api/admin/users/list').then(r=>r.json()).then(d=>{ setUsers(d.users||[]); });
-    fetch('/api/admin/settings/get').then(r=>r.json()).then(d=>{ setSettings(d.settings||{}); });
+    fetch('/api/admin/users').then(r=>r.json()).then(d=>{ setUsers(d.users||[]); });
+    fetch('/api/admin/settings?env=1').then(r=>r.json()).then(d=>{ setSettings({...d.settings, envs: d.envs}); });
   }, []);
 
   useEffect(() => {
     if (tab !== 'logs') return;
-    fetch('/api/admin/logs/list').then(r=>r.json()).then(d=>{ setLogs(d.logs||[]); });
+    fetch('/api/admin/logs').then(r=>r.json()).then(d=>{ setLogs(d.logs||[]); });
   }, [tab]);
 
   const chartData = useMemo(() => (
@@ -95,8 +103,8 @@ export const AdminPanel: React.FC<Props> = ({ language, onBack }) => {
                 const email = prompt('Email')||''
                 if(!email) return
                 const role = prompt('Role (admin/moderator/user)')||'user'
-                await fetch('/api/admin/users/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,role})})
-                const d=await (await fetch('/api/admin/users/list')).json(); setUsers(d.users||[])
+                await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'create',email,role})})
+                const d=await (await fetch('/api/admin/users')).json(); setUsers(d.users||[])
               }} className="px-4 py-2 rounded-lg bg-brand-blue text-white font-bold">Create</button>
             </div>
             <div className="overflow-x-auto">
@@ -119,13 +127,13 @@ export const AdminPanel: React.FC<Props> = ({ language, onBack }) => {
                         <div className="flex gap-2">
                           <button onClick={async()=>{
                             const role = prompt('Role (admin/moderator/user)', u.role)||u.role
-                            await fetch('/api/admin/users/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:u.id,role})})
-                            const d=await (await fetch('/api/admin/users/list')).json(); setUsers(d.users||[])
+                            await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'update',id:u.id,role})})
+                            const d=await (await fetch('/api/admin/users')).json(); setUsers(d.users||[])
                           }} className="px-3 py-1 rounded-lg bg-gray-100">Edit</button>
                           <button onClick={async()=>{
                             if(!confirm('Delete user?')) return
-                            await fetch('/api/admin/users/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:u.id})})
-                            const d=await (await fetch('/api/admin/users/list')).json(); setUsers(d.users||[])
+                            await fetch('/api/admin/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'delete',id:u.id})})
+                            const d=await (await fetch('/api/admin/users')).json(); setUsers(d.users||[])
                           }} className="px-3 py-1 rounded-lg bg-red-100 text-red-600">Delete</button>
                         </div>
                       </td>
@@ -156,8 +164,7 @@ export const AdminPanel: React.FC<Props> = ({ language, onBack }) => {
               </div>
             </div>
             <button onClick={async()=>{
-              await fetch('/api/admin/settings/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'theme',value:settings.theme||'Light'})})
-              await fetch('/api/admin/settings/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'lang',value:settings.lang||'English'})})
+              await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{key:'theme',value:settings.theme||'Light'},{key:'lang',value:settings.lang||'English'}]})})
             }} className="px-4 py-2 rounded-lg bg-brand-blue text-white font-bold">Save</button>
           </div>
         )}
@@ -200,15 +207,54 @@ export const AdminPanel: React.FC<Props> = ({ language, onBack }) => {
                 <div className="flex items-center gap-2"><Globe className="w-4 h-4"/> Supabase</div>
                 <button onClick={async()=>{
                   setSettings({...settings,integration_supabase:'configured'})
-                  await fetch('/api/admin/settings/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'integration_supabase',value:'configured'})})
+                  await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'integration_supabase',value:'configured'})})
                 }} className="mt-2 px-3 py-1 rounded-lg bg-blue-100 text-blue-700">{settings.integration_supabase==='configured'?'Configured':'Configure'}</button>
+                <div className="mt-2 text-xs">
+                  <div className={`${settings.envs?.SUPABASE_URL? 'text-green-700':'text-red-600'}`}>SUPABASE_URL: {settings.envs?.SUPABASE_URL? 'OK':'Missing'}</div>
+                  <div className={`${settings.envs?.SUPABASE_SERVICE_ROLE_KEY? 'text-green-700':'text-red-600'}`}>SERVICE_ROLE: {settings.envs?.SUPABASE_SERVICE_ROLE_KEY? 'OK':'Missing'}</div>
+                  <div className={`${settings.envs?.VITE_SUPABASE_URL? 'text-green-700':'text-red-600'}`}>VITE_SUPABASE_URL: {settings.envs?.VITE_SUPABASE_URL? 'OK':'Missing'}</div>
+                  <div className={`${settings.envs?.VITE_SUPABASE_ANON_KEY? 'text-green-700':'text-red-600'}`}>VITE_ANON_KEY: {settings.envs?.VITE_SUPABASE_ANON_KEY? 'OK':'Missing'}</div>
+                </div>
               </div>
               <div className="border rounded-xl p-4">
                 <div className="flex items-center gap-2"><KeyRound className="w-4 h-4"/> Stripe</div>
                 <button onClick={async()=>{
                   setSettings({...settings,integration_stripe:'configured'})
-                  await fetch('/api/admin/settings/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'integration_stripe',value:'configured'})})
+                  await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:'integration_stripe',value:'configured'})})
                 }} className="mt-2 px-3 py-1 rounded-lg bg-blue-100 text-blue-700">{settings.integration_stripe==='configured'?'Configured':'Configure'}</button>
+                <div className="mt-2 text-xs">
+                  <div className={`${settings.envs?.STRIPE_SECRET_KEY? 'text-green-700':'text-red-600'}`}>STRIPE_SECRET_KEY: {settings.envs?.STRIPE_SECRET_KEY? 'OK':'Missing'}</div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 border-t pt-4">
+              <h4 className="font-bold text-gray-800 mb-3">Manage Vercel Environment</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input value={envForm.SUPABASE_URL} onChange={e=>setEnvForm({...envForm,SUPABASE_URL:e.target.value})} placeholder="SUPABASE_URL" className="px-3 py-2 rounded-lg border" />
+                <input value={envForm.SUPABASE_SERVICE_ROLE_KEY} onChange={e=>setEnvForm({...envForm,SUPABASE_SERVICE_ROLE_KEY:e.target.value})} placeholder="SUPABASE_SERVICE_ROLE_KEY" className="px-3 py-2 rounded-lg border" />
+                <input value={envForm.VITE_SUPABASE_URL} onChange={e=>setEnvForm({...envForm,VITE_SUPABASE_URL:e.target.value})} placeholder="VITE_SUPABASE_URL" className="px-3 py-2 rounded-lg border" />
+                <input value={envForm.VITE_SUPABASE_ANON_KEY} onChange={e=>setEnvForm({...envForm,VITE_SUPABASE_ANON_KEY:e.target.value})} placeholder="VITE_SUPABASE_ANON_KEY" className="px-3 py-2 rounded-lg border" />
+                <input value={envForm.VITE_STRIPE_PUBLISHABLE_KEY} onChange={e=>setEnvForm({...envForm,VITE_STRIPE_PUBLISHABLE_KEY:e.target.value})} placeholder="VITE_STRIPE_PUBLISHABLE_KEY" className="px-3 py-2 rounded-lg border" />
+                <input value={envForm.STRIPE_SECRET_KEY} onChange={e=>setEnvForm({...envForm,STRIPE_SECRET_KEY:e.target.value})} placeholder="STRIPE_SECRET_KEY" className="px-3 py-2 rounded-lg border" />
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button onClick={async()=>{
+                  const pairs = [
+                    ['SUPABASE_URL', envForm.SUPABASE_URL],
+                    ['SUPABASE_SERVICE_ROLE_KEY', envForm.SUPABASE_SERVICE_ROLE_KEY],
+                    ['VITE_SUPABASE_URL', envForm.VITE_SUPABASE_URL],
+                    ['VITE_SUPABASE_ANON_KEY', envForm.VITE_SUPABASE_ANON_KEY],
+                    ['VITE_STRIPE_PUBLISHABLE_KEY', envForm.VITE_STRIPE_PUBLISHABLE_KEY],
+                    ['STRIPE_SECRET_KEY', envForm.STRIPE_SECRET_KEY],
+                  ] as const
+                  for (const [key, value] of pairs) {
+                    if (!value) continue
+                    await fetch('/api/admin/vercel-env',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key,value,targets:['production','preview']})})
+                  }
+                  const d = await (await fetch('/api/admin/settings?env=1')).json();
+                  setSettings({...d.settings, envs: d.envs});
+                }} className="px-4 py-2 rounded-lg bg-brand-blue text-white font-bold">Save to Vercel</button>
+                <div className="text-xs text-gray-500">Requires VERCEL_API_TOKEN on server</div>
               </div>
             </div>
           </div>
@@ -239,6 +285,9 @@ export const AdminPanel: React.FC<Props> = ({ language, onBack }) => {
         {tab==='logs' && (
           <div className="bg-white rounded-xl p-6 shadow-sm space-y-4">
             <h3 className="font-bold text-gray-800">Audit Logs</h3>
+            <div className="flex gap-2 mb-3">
+              <a href="/api/admin/logs?format=csv" className="px-3 py-1 rounded-lg bg-gray-100 text-gray-700 font-bold">Export CSV</a>
+            </div>
             <div className="overflow-x-auto">
               <table className="min-w-full">
                 <thead>

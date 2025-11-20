@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Language, FamilyAccount, OnboardingAdvice } from '../types';
 import { TRANSLATIONS } from '../constants';
 import { User, Lock, Sparkles, ArrowRight, Check, ArrowLeft, Globe, Languages, AtSign } from 'lucide-react';
-import { startParentSignup, verifyEmailToken, getLastPendingToken, supabaseSendVerificationEmail, checkEmailVerified } from '../services/authService';
+import { startParentSignup, verifyEmailToken, getLastPendingToken, supabaseSendVerificationEmail, checkEmailVerified, resendVerificationEmail } from '../services/authService';
 import { isSupabaseConfigured, supabase } from '../services/supabase';
 import { isSubdomainAvailable, createWorkspace, bindParentToWorkspace } from '../services/tenantService';
 import { getOnboardingAdvice } from '../services/geminiService';
@@ -20,7 +20,6 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [pin, setPin] = useState('');
   const [pendingFamily, setPendingFamily] = useState<FamilyAccount | null>(null);
   const [familyName, setFamilyName] = useState('');
   const [subdomain, setSubdomain] = useState('');
@@ -28,10 +27,15 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
   const [timezone, setTimezone] = useState('Europe/Belgrade');
   const [advice, setAdvice] = useState<OnboardingAdvice | null>(null);
   const [plan, setPlan] = useState<'free' | 'standard' | 'premium'>('free');
-  const canSubmitParent = !!firstName && !!email && /.+@.+\..+/.test(email) && pin.length === 4 && password.length >= 6 && password === confirmPassword;
+  const canSubmitParent = !!firstName && !!email && /.+@.+\..+/.test(email) && password.length >= 6 && password === confirmPassword;
   const [dbConnected, setDbConnected] = useState<boolean>(false);
+  const [resending, setResending] = useState(false);
+  const [resentOk, setResentOk] = useState<boolean | null>(null);
+  const [toast, setToast] = useState<{text:string,type:'success'|'error'|null}|null>(null);
+  const [autoResendDone, setAutoResendDone] = useState(false);
 
   const t = TRANSLATIONS[language];
+  const BASE_DOMAIN = 'brainplaykids.com';
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -64,12 +68,16 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
   }, []);
 
   useEffect(() => {
-    const check = async () => {
+    let handle: any;
+    const run = () => {
       if (!subdomain || step !== 3) return;
-      const ok = await isSubdomainAvailable(subdomain.toLowerCase());
-      setSubdomainAvailable(ok);
+      handle = setTimeout(async () => {
+        const ok = await isSubdomainAvailable(subdomain.toLowerCase());
+        setSubdomainAvailable(ok);
+      }, 300);
     };
-    check();
+    run();
+    return () => { if (handle) clearTimeout(handle); };
   }, [subdomain, step]);
 
   useEffect(() => {
@@ -80,10 +88,39 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
     if (step === 3) loadAdvice();
   }, [step, language]);
 
+  useEffect(() => {
+    let handle: any;
+    if (step === 2 && email && !autoResendDone) {
+      handle = setTimeout(async () => {
+        if (resending) return;
+        setResending(true);
+        const ok = await resendVerificationEmail(email.trim().toLowerCase());
+        setResentOk(ok);
+        setResending(false);
+        setAutoResendDone(true);
+        setToast({ text: ok ? 'Verification email sent' : 'Failed to send email', type: ok ? 'success' : 'error' });
+        setTimeout(() => setToast(null), 2500);
+      }, 60000);
+    }
+    return () => { if (handle) clearTimeout(handle); };
+  }, [step, email, autoResendDone, resending]);
+
+  useEffect(() => {
+    if (step !== 3) return;
+    if (!familyName) {
+      const last = pendingFamily?.parent.lastName || '';
+      if (last) setFamilyName(`${last} Family`);
+    }
+    if (!subdomain) {
+      const candidate = deriveSubdomain();
+      if (candidate) setSubdomain(candidate);
+    }
+  }, [step]);
+
   const handleParentSubmit = () => {
-    const { account } = startParentSignup(firstName.trim(), lastName.trim(), email.trim().toLowerCase(), password, pin);
+    const { account } = startParentSignup(firstName.trim(), lastName.trim(), email.trim().toLowerCase(), password, '0000');
     setPendingFamily(account);
-    supabaseSendVerificationEmail(firstName.trim(), lastName.trim(), email.trim().toLowerCase(), password, pin).catch(() => {});
+    supabaseSendVerificationEmail(firstName.trim(), lastName.trim(), email.trim().toLowerCase(), password, '0000').catch(() => {});
     setStep(2);
   };
 
@@ -126,30 +163,7 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
     return candidate.slice(0, 30);
   };
 
-  useEffect(() => {
-    const autoProvision = async () => {
-      if (!pendingFamily) return;
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || timezone;
-      let base = deriveSubdomain();
-      let final = base;
-      let tries = 0;
-      while (!(await isSubdomainAvailable(final)) && tries < 20) {
-        tries += 1;
-        final = `${base}-${tries}`;
-      }
-      const famName = pendingFamily.parent.lastName || pendingFamily.parent.name || 'Family';
-      try {
-        setProvisioning(true);
-        const ws = await createWorkspace(famName, final, language, tz, plan);
-        const bound = bindParentToWorkspace(pendingFamily, ws);
-        onComplete(bound);
-      } catch (e) {
-        setProvisioning(false);
-      }
-    };
-    if (step === 3 && pendingFamily && !subdomain && !provisioning) autoProvision();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, pendingFamily, provisioning]);
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-blue to-brand-purple flex items-center justify-center p-4">
@@ -215,34 +229,29 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
                                 )}
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-sm font-bold text-gray-500 mb-1">Create PIN (4 digits)</label>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
-                                <input type="text" maxLength={4} value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, ''))} className="w-full pl-10 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-brand-blue tracking-widest font-bold" placeholder="1234" onKeyDown={e => { if (e.key === 'Enter' && canSubmitParent) handleParentSubmit(); }} />
-                                {pin && pin.length !== 4 && (
-                                  <p className="text-xs text-red-600 mt-1">PIN must be 4 digits</p>
-                                )}
-                            </div>
-                        </div>
+                        
                         {!canSubmitParent && (
-                          <p className="text-xs text-gray-400">Fill all fields, a valid email, matching passwords (min 6 chars), and a 4‑digit PIN to continue.</p>
+                          <p className="text-xs text-gray-400">Fill all fields, use a valid email, and matching passwords (min 6 chars) to continue.</p>
                         )}
                     </div>
                 </div>
             )}
 
             {!provisioning && step === 2 && (
-                <div className="flex-1 flex flex-col items-center justify-center text-center">
-                    <div className="w-20 h-20 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mb-6">
-                        <Lock className="w-10 h-10" />
-                    </div>
-                    <h3 className="text-3xl font-display font-bold text-gray-800 mb-2">Check your email to verify your account</h3>
-                    <p className="text-gray-500 mb-8">We sent a verification link to {email || 'your email'}.</p>
-                    <div className="flex gap-3">
-                        <button onClick={handleVerifyClicked} className="px-6 py-3 rounded-xl font-bold bg-brand-blue text-white hover:bg-blue-700">I've verified my email</button>
-                    </div>
+              <div className="flex-1 flex flex-col items-center justify-center text-center">
+                <div className="w-20 h-20 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mb-6">
+                  <Lock className="w-10 h-10" />
                 </div>
+                <h3 className="text-3xl font-display font-bold text-gray-800 mb-2">Check your email to verify your account</h3>
+                <p className="text-gray-500 mb-8">We sent a verification link to {email || 'your email'}.</p>
+                <div className="flex gap-3">
+                  <button onClick={handleVerifyClicked} className="px-6 py-3 rounded-xl font-bold bg-brand-blue text-white hover:bg-blue-700">I've verified my email</button>
+                  <button onClick={async()=>{ if(!email||resending) return; setResending(true); const ok = await resendVerificationEmail(email.trim().toLowerCase()); setResentOk(ok); setResending(false); setToast({ text: ok ? 'Verification email sent' : 'Failed to send email', type: ok ? 'success' : 'error' }); setTimeout(() => setToast(null), 2500); }} disabled={!email || resending} className={`px-6 py-3 rounded-xl font-bold ${(!email || resending)? 'bg-gray-200 text-gray-400 cursor-not-allowed':'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>{resending? 'Sending…':'Resend email'}</button>
+                </div>
+                {toast && (
+                  <div className={`fixed top-4 right-4 px-4 py-2 rounded-xl shadow-lg ${toast.type==='success'?'bg-green-600 text-white':'bg-red-600 text-white'}`}>{toast.text}</div>
+                )}
+              </div>
             )}
 
             {!provisioning && step === 3 && (
@@ -257,9 +266,15 @@ export const SaaSOnboarding: React.FC<Props> = ({ onComplete, language }) => {
                             <label className="block text-sm font-bold text-gray-500 mb-1">Subdomain</label>
                             <div className="relative">
                               <Globe className="absolute left-3 top-3 text-gray-400 w-5 h-5" />
-                              <input type="text" value={subdomain} onChange={e => setSubdomain(e.target.value.replace(/[^a-z0-9-]/g, ''))} className="w-full pl-10 pr-24 py-3 rounded-xl border-2 border-gray-200 focus:border-brand-blue" placeholder="johnson" />
-                              <span className="absolute right-3 top-2.5 text-sm text-gray-400">.brainplaykids.com</span>
+                              <input 
+                                type="text" 
+                                value={subdomain} 
+                                onChange={e => setSubdomain(e.target.value.replace(/[^a-z0-9-]/g, ''))} 
+                                className={`w-full pl-10 pr-4 py-3 rounded-xl border-2 ${subdomain ? (subdomainAvailable===false ? 'border-red-300' : subdomainAvailable ? 'border-green-300' : 'border-gray-200') : 'border-gray-200'} focus:border-brand-blue`} 
+                                placeholder="johnson" 
+                              />
                             </div>
+                            <div className="text-sm text-gray-500 mt-1">{subdomain ? `${subdomain}.${BASE_DOMAIN}` : `.${BASE_DOMAIN}`}</div>
                             {subdomain && (
                               <p className={`text-sm mt-1 ${subdomainAvailable ? 'text-green-600' : subdomainAvailable === false ? 'text-red-600' : 'text-gray-400'}`}>
                                 {subdomainAvailable === null ? 'Checking availability...' : subdomainAvailable ? 'Available' : 'Not available'}

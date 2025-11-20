@@ -79,14 +79,39 @@ export const startParentSignup = (firstName: string, lastName: string, email: st
 
 export const supabaseSendVerificationEmail = async (firstName: string, lastName: string, email: string, password: string, pin: string) => {
   if (!isSupabaseConfigured()) return;
+  const redirect = (import.meta as any).env?.VITE_AUTH_REDIRECT_URL || `https://${(import.meta as any).env?.VITE_BASE_DOMAIN || 'brainplaykids.com'}/?verified=true`;
   await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `https://${(import.meta as any).env?.VITE_BASE_DOMAIN || 'brainplaykids.com'}/?verified=true`,
+      emailRedirectTo: redirect,
       data: { firstName, lastName, pin },
     },
   });
+};
+
+export const resendVerificationEmail = async (email: string) => {
+  const redirect = (import.meta as any).env?.VITE_AUTH_REDIRECT_URL || `https://${(import.meta as any).env?.VITE_BASE_DOMAIN || 'brainplaykids.com'}/?verified=true`;
+  if (isSupabaseConfigured()) {
+    try {
+      await supabase.auth.resend({ type: 'signup', email, options: { emailRedirectTo: redirect } as any });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const token = getLastPendingToken();
+  if (!token) return false;
+  try {
+    await fetch('/api/email/send-verification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to: email, token, firstName: email.split('@')[0] })
+    });
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 export const verifyEmailToken = (token: string): FamilyAccount | null => {

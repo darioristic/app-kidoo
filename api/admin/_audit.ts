@@ -1,4 +1,3 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { supabaseAdmin, hasAdminClient } from '../../services/supabaseAdmin'
 
 export const writeAudit = async (actor: string | null, action: string, target?: string, metadata?: any) => {
@@ -6,7 +5,7 @@ export const writeAudit = async (actor: string | null, action: string, target?: 
   await supabaseAdmin.from('audit_logs').insert({ actor_user_id: actor || null, action, target, metadata: metadata || null })
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
   try {
     const { actor, action, target, metadata } = req.body || {}
