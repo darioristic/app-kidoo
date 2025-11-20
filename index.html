@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pametno pa Zabavno</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;600;700&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+      body {
+        background-color: #F3F4F6;
+      }
+      /* Custom scrollbar for kids friendly look */
+      ::-webkit-scrollbar {
+        width: 12px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #888; 
+        border-radius: 10px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #555; 
+      }
+      /* Kid-friendly animations */
+      @keyframes floaty {
+        0% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+        100% { transform: translateY(0); }
+      }
+      @keyframes wiggle {
+        0%,100% { transform: rotate(0deg); }
+        25% { transform: rotate(3deg); }
+        75% { transform: rotate(-3deg); }
+      }
+      @keyframes confettiFall {
+        0% { transform: translateY(-20vh) rotate(0deg); opacity: 0; }
+        10% { opacity: 1; }
+        100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
+      }
+      .animate-floaty { animation: floaty 2.5s ease-in-out infinite; }
+      .animate-wiggle { animation: wiggle 1.2s ease-in-out infinite; }
+      .confetti-piece { position: absolute; top: -10vh; font-size: 18px; animation: confettiFall 2.6s ease-in-out forwards; }
+      .confetti-1 { left: 10%; animation-delay: .0s; }
+      .confetti-2 { left: 20%; animation-delay: .2s; }
+      .confetti-3 { left: 30%; animation-delay: .4s; }
+      .confetti-4 { left: 40%; animation-delay: .1s; }
+      .confetti-5 { left: 50%; animation-delay: .3s; }
+      .confetti-6 { left: 60%; animation-delay: .5s; }
+      .confetti-7 { left: 70%; animation-delay: .15s; }
+      .confetti-8 { left: 80%; animation-delay: .35s; }
+      .confetti-9 { left: 90%; animation-delay: .55s; }
+    </style>
+  
+<!-- CSS is imported via Vite in src/index.css -->
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "name": "app-kidoo",
+  "description": "A secure, AI-guided platform for children (6-10) that gamifies education by rewarding cognitive 'Smart Games' with 'Fun Game' time, featuring a parent dashboard and Gemini-powered mentorship.",
+  "requestFramePermissions": []
+}
