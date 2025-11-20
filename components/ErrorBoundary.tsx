@@ -4,9 +4,10 @@ type Props = { children: React.ReactNode };
 type State = { hasError: boolean };
 
 export class ErrorBoundary extends React.Component<Props, State> {
+  state: State = { hasError: false };
+  props!: Readonly<Props>;
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false };
   }
 
   static getDerivedStateFromError() {
